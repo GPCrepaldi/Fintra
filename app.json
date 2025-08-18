@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "fintra",
+    "name": "Fintra - Gerenciador Financeiro",
     "slug": "fintra",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,14 +9,16 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fintra.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.fintra.app"
     },
     "web": {
       "bundler": "metro",
@@ -37,6 +39,7 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "description": "Aplicativo de gerenciamento financeiro pessoal para controle de gastos e orçamento."
   }
 }

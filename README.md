@@ -1,50 +1,55 @@
-# Welcome to your Expo app 👋
+# Fintra - Gerenciador Financeiro
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Fintra é um aplicativo de gerenciamento financeiro pessoal desenvolvido como Trabalho de Graduação. O aplicativo permite que o usuário controle seus gastos, registre seu salário mensal e acompanhe seu saldo disponível.
 
-## Get started
+## Funcionalidades
 
-1. Install dependencies
+- **Registro de Salário**: Informe seu salário mensal para cálculo do saldo disponível.
+- **Adição de Gastos**: Registre seus gastos, informando se são no crédito ou débito.
+- **Gastos Recorrentes**: Para gastos no crédito, é possível definir se são recorrentes e o dia de vencimento.
+- **Gestão de Gastos**: Edite ou exclua gastos cadastrados conforme necessário.
+- **Visualização de Saldo**: Acompanhe seu saldo disponível e um resumo dos seus gastos.
 
+## Tecnologias Utilizadas
+
+- React Native
+- Expo
+- TypeScript
+- AsyncStorage para persistência de dados
+- Context API para gerenciamento de estado
+
+## Instalação
+
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/fintra.git
+   cd fintra
+   ```
+
+2. Instale as dependências:
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. Inicie o aplicativo:
    ```bash
-   npx expo start
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+4. Use o aplicativo Expo Go no seu dispositivo móvel para escanear o QR code ou execute em um emulador.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Estrutura do Projeto
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- `/app`: Contém as telas do aplicativo organizadas por abas
+- `/components`: Componentes reutilizáveis
+- `/contexts`: Contextos para gerenciamento de estado
+- `/constants`: Constantes como cores e temas
+- `/hooks`: Hooks personalizados
 
-## Get a fresh project
+## Contribuição
 
-When you're ready, run:
+Este projeto foi desenvolvido como Trabalho de Graduação. Contribuições são bem-vindas através de pull requests.
 
-```bash
-npm run reset-project
-```
+## Licença
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Este projeto está licenciado sob a licença MIT.
