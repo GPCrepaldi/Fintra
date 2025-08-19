@@ -37,6 +37,18 @@ export default function ExpensesScreen() {
 
   // Obter os gastos do mês atual
   const currentMonthExpenses = getExpensesByMonth(currentMonth, currentYear);
+  
+  // Calcular o total de gastos do mês atual
+  const totalExpenses = currentMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
+  
+  // Calcular gastos por tipo
+  const debitExpenses = currentMonthExpenses
+    .filter(expense => expense.type === 'debit')
+    .reduce((total, expense) => total + expense.amount, 0);
+    
+  const creditExpenses = currentMonthExpenses
+    .filter(expense => expense.type === 'credit')
+    .reduce((total, expense) => total + expense.amount, 0);
 
   // Função para navegar para o mês anterior
   const goToPreviousMonth = () => {
@@ -224,7 +236,7 @@ export default function ExpensesScreen() {
       {/* Navegação entre meses */}
       <ThemedView style={styles.monthNavigation}>
         <TouchableOpacity onPress={goToPreviousMonth} style={styles.monthButton}>
-          <IconSymbol size={24} name="chevron-left" color={Colors[colorScheme ?? 'light'].text} />
+          <IconSymbol size={24} name="chevron.left" color={Colors[colorScheme ?? 'light'].text} />
         </TouchableOpacity>
         
         <ThemedText type="subtitle">
@@ -232,8 +244,19 @@ export default function ExpensesScreen() {
         </ThemedText>
         
         <TouchableOpacity onPress={goToNextMonth} style={styles.monthButton}>
-          <IconSymbol size={24} name="chevron-right" color={Colors[colorScheme ?? 'light'].text} />
+          <IconSymbol size={24} name="chevron.right" color={Colors[colorScheme ?? 'light'].text} />
         </TouchableOpacity>
+      </ThemedView>
+      
+      {/* Resumo dos gastos */}
+      <ThemedView style={styles.summaryContainer}>
+        <ThemedText type="defaultSemiBold" style={styles.summaryText}>
+          Total: R$ {totalExpenses.toFixed(2)}
+        </ThemedText>
+        <ThemedView style={styles.summaryDetails}>
+          <ThemedText style={styles.summaryDetailText}>Débito: R$ {debitExpenses.toFixed(2)}</ThemedText>
+          <ThemedText style={styles.summaryDetailText}>Crédito: R$ {creditExpenses.toFixed(2)}</ThemedText>
+        </ThemedView>
       </ThemedView>
       
       {currentMonthExpenses.length === 0 ? (
@@ -471,5 +494,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Adicionar estes novos estilos
+  summaryContainer: {
+    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  summaryText: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  summaryDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryDetailText: {
+    fontSize: 14,
   },
 });

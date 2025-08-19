@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, TextInput, Alert, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useFinance } from '@/contexts/FinanceContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import React, { useEffect, useState } from 'react';
+import { Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 
 export default function SettingsScreen() {
   const { salary: contextSalary, setSalary: setContextSalary } = useFinance();
@@ -63,7 +63,7 @@ export default function SettingsScreen() {
         <ThemedText style={styles.description}>
           Fintra é um aplicativo de gerenciamento financeiro pessoal desenvolvido como Trabalho de Graduação.
         </ThemedText>
-        <ThemedText style={styles.version}>Versão 1.0.0</ThemedText>
+        <ThemedText style={styles.version}>Versão 1.2.1</ThemedText>
       </ThemedView>
     </ThemedView>
   );
