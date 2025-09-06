@@ -12,6 +12,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFinance } from '@/contexts/FinanceContext';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/Colors';
 
 interface Goal {
   id: string;
@@ -48,6 +52,8 @@ export default function Goals() {
     currentMonth,
     currentYear,
   } = useFinance();
+  
+  const colorScheme = useColorScheme();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [goalName, setGoalName] = useState('');
@@ -169,19 +175,19 @@ export default function Goals() {
     const monthlyContribution = monthlyContributions.find(c => c.goalId === goal.id);
     
     return (
-      <View style={styles.goalCard}>
+      <ThemedView style={[styles.goalCard, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
         <View style={styles.goalHeader}>
           <View style={styles.goalInfo}>
-            <Text style={styles.goalName}>{goal.name}</Text>
-            <Text style={styles.goalTarget}>
+            <ThemedText style={styles.goalName}>{goal.name}</ThemedText>
+            <ThemedText style={styles.goalTarget}>
               Meta total: {formatCurrency(goal.totalTarget)}
-            </Text>
-            <Text style={styles.goalTarget}>
+            </ThemedText>
+            <ThemedText style={styles.goalTarget}>
               Meta mensal: {formatCurrency(goal.monthlyTarget)}
-            </Text>
-            <Text style={styles.goalCurrent}>
+            </ThemedText>
+            <ThemedText style={styles.goalCurrent}>
               Total acumulado: {formatCurrency(goal.currentAmount)}
-            </Text>
+            </ThemedText>
           </View>
           <View style={styles.goalActions}>
             <TouchableOpacity
@@ -209,36 +215,39 @@ export default function Goals() {
         
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+            <View 
+              style={[styles.progressFill, { width: `${Math.min(progress, 100)}%` }]} 
+            />
           </View>
-          <Text style={styles.progressText}>{progress.toFixed(1)}%</Text>
+          <ThemedText style={styles.progressText}>{progress.toFixed(1)}%</ThemedText>
         </View>
         
         {monthlyContribution && (
-          <View style={styles.monthlyContribution}>
+          <View style={[styles.monthlyContribution, 
+            monthlyContribution.isComplete ? { backgroundColor: '#E8F5E8' } : { backgroundColor: '#FFF2F2' }
+          ]}>
             <Text style={[
               styles.contributionText,
               monthlyContribution.isComplete ? styles.completeContribution : styles.incompleteContribution
             ]}>
-              Este mês: {formatCurrency(monthlyContribution.amount)}
-              {!monthlyContribution.isComplete && ' (Valor incompleto)'}
+              Contribuição {currentMonth}/{currentYear}: {formatCurrency(monthlyContribution.amount)} 
+              {monthlyContribution.isComplete ? ' ✓' : ' ⏳'}
             </Text>
           </View>
-        )}
-      </View>
-    );
+        )}      </ThemedView>    );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Metas de Economia</Text>
+    <ThemedView style={styles.container}>
+      {/* Header */}
+      <ThemedView style={[styles.header, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
+        <ThemedText style={styles.title}>Metas</ThemedText>
         <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.configButton} 
+          <TouchableOpacity
+            style={[styles.configButton, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault }]}
             onPress={() => setConfigModalVisible(true)}
           >
-            <Ionicons name="settings-outline" size={24} color="#007AFF" />
+            <Ionicons name="settings-outline" size={24} color={Colors[colorScheme ?? 'light'].tint} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.addButton}
@@ -247,19 +256,19 @@ export default function Goals() {
             <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
         </View>
-      </View>
+      </ThemedView>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Resumo do Mês</Text>
-        <Text style={styles.summaryText}>
+      <ThemedView style={[styles.summaryCard, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
+        <ThemedText style={styles.summaryTitle}>Resumo do Mês</ThemedText>
+        <ThemedText style={styles.summaryText}>
           Saldo disponível: {formatCurrency(availableBalance)}
-        </Text>
-        <Text style={styles.summaryText}>
+        </ThemedText>
+        <ThemedText style={styles.summaryText}>
           Contribuições processadas: {monthlyContributions.length}
-        </Text>
-        <Text style={styles.summaryText}>
+        </ThemedText>
+        <ThemedText style={styles.summaryText}>
           Dia de contribuição: {goalContributionDay}
-        </Text>
+        </ThemedText>
         
         {availableBalance > 0 && goals.some(g => g.isActive) && (
           <TouchableOpacity
@@ -269,7 +278,7 @@ export default function Goals() {
             <Text style={styles.processButtonText}>Processar Contribuições do Mês</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </ThemedView>
 
       <FlatList
         data={goals}
@@ -279,9 +288,11 @@ export default function Goals() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="target" size={64} color="#C7C7CC" />
-            <Text style={styles.emptyText}>Nenhuma meta criada</Text>
-            <Text style={styles.emptySubtext}>Toque no + para adicionar sua primeira meta</Text>
+            <Ionicons name="target-outline" size={64} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
+            <ThemedText style={styles.emptyText}>Nenhuma meta criada</ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              Toque no botão + para criar sua primeira meta de economia
+            </ThemedText>
           </View>
         }
       />
@@ -299,11 +310,11 @@ export default function Goals() {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <ThemedView style={[styles.modalContent, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+              <ThemedText style={styles.modalTitle}>
                 {editingGoal ? 'Editar Meta' : 'Nova Meta'}
-              </Text>
+              </ThemedText>
               <TouchableOpacity
                 onPress={() => {
                   setModalVisible(false);
@@ -313,41 +324,53 @@ export default function Goals() {
                   setMonthlyTarget('');
                 }}
               >
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Nome da Meta</Text>
+              <ThemedText style={styles.inputLabel}>Nome da Meta</ThemedText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { 
+                  backgroundColor: Colors[colorScheme ?? 'light'].background,
+                  borderColor: Colors[colorScheme ?? 'light'].tabIconDefault,
+                  color: Colors[colorScheme ?? 'light'].text
+                }]}
                 value={goalName}
                 onChangeText={setGoalName}
                 placeholder="Ex: Viagem de férias"
-                placeholderTextColor="#999"
+                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Valor Total da Meta (R$)</Text>
+              <ThemedText style={styles.inputLabel}>Valor Total da Meta (R$)</ThemedText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { 
+                  backgroundColor: Colors[colorScheme ?? 'light'].background,
+                  borderColor: Colors[colorScheme ?? 'light'].tabIconDefault,
+                  color: Colors[colorScheme ?? 'light'].text
+                }]}
                 value={totalTarget}
                 onChangeText={setTotalTarget}
                 placeholder="Ex: 5000,00"
-                placeholderTextColor="#999"
+                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
                 keyboardType="numeric"
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Valor Mensal (R$)</Text>
+              <ThemedText style={styles.inputLabel}>Valor Mensal (R$)</ThemedText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { 
+                  backgroundColor: Colors[colorScheme ?? 'light'].background,
+                  borderColor: Colors[colorScheme ?? 'light'].tabIconDefault,
+                  color: Colors[colorScheme ?? 'light'].text
+                }]}
                 value={monthlyTarget}
                 onChangeText={setMonthlyTarget}
                 placeholder="Ex: 500,00"
-                placeholderTextColor="#999"
+                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
                 keyboardType="numeric"
               />
             </View>
@@ -357,7 +380,7 @@ export default function Goals() {
                 {editingGoal ? 'Atualizar' : 'Criar Meta'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </ThemedView>
         </View>
       </Modal>
 
@@ -369,26 +392,30 @@ export default function Goals() {
         onRequestClose={() => setConfigModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <ThemedView style={[styles.modalContent, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Configurar Dia de Contribuição</Text>
+              <ThemedText style={styles.modalTitle}>Configurar Dia de Contribuição</ThemedText>
               <TouchableOpacity onPress={() => setConfigModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.configDescription}>
+            <ThemedText style={styles.configDescription}>
               Defina o dia do mês em que os valores serão adicionados automaticamente às suas metas. Esta configuração se aplica a todas as metas.
-            </Text>
+            </ThemedText>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Dia do Mês (1-31)</Text>
+              <ThemedText style={styles.inputLabel}>Dia do Mês (1-31)</ThemedText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { 
+                  backgroundColor: Colors[colorScheme ?? 'light'].background,
+                  borderColor: Colors[colorScheme ?? 'light'].tabIconDefault,
+                  color: Colors[colorScheme ?? 'light'].text
+                }]}
                 value={tempContributionDay}
                 onChangeText={setTempContributionDay}
                 placeholder="Ex: 15"
-                placeholderTextColor="#999"
+                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
                 keyboardType="numeric"
                 maxLength={2}
               />
@@ -397,17 +424,16 @@ export default function Goals() {
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveContributionDay}>
               <Text style={styles.saveButtonText}>Salvar Configuração</Text>
             </TouchableOpacity>
-          </View>
+          </ThemedView>
         </View>
       </Modal>
-    </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
   },
   header: {
     flexDirection: 'row',
@@ -416,12 +442,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: 'white',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#000',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -434,7 +458,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
   },
   addButton: {
     backgroundColor: '#007AFF',
@@ -445,7 +468,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryCard: {
-    backgroundColor: 'white',
     margin: 20,
     padding: 20,
     borderRadius: 12,
@@ -459,11 +481,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 10,
-    color: '#000',
   },
   summaryText: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 5,
   },
   processButton: {
@@ -483,7 +503,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   goalCard: {
-    backgroundColor: 'white',
     padding: 20,
     borderRadius: 12,
     marginBottom: 15,
@@ -505,12 +524,10 @@ const styles = StyleSheet.create({
   goalName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 5,
   },
   goalTarget: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 2,
   },
   goalCurrent: {
@@ -564,7 +581,6 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 12,
-    color: '#666',
     fontWeight: '500',
   },
   monthlyContribution: {
@@ -591,12 +607,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#C7C7CC',
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#C7C7CC',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -607,7 +621,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
     width: '90%',
@@ -622,7 +635,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
   },
   inputContainer: {
     marginBottom: 20,
@@ -630,16 +642,13 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#000',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#F2F2F7',
   },
   saveButton: {
     backgroundColor: '#007AFF',
@@ -654,7 +663,6 @@ const styles = StyleSheet.create({
   },
   configDescription: {
     fontSize: 14,
-    color: '#666',
     lineHeight: 20,
     marginBottom: 20,
     textAlign: 'center',
