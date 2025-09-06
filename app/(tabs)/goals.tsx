@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -136,28 +136,8 @@ export default function Goals() {
   };
 
   const handleDeleteGoal = (goal: Goal) => {
-    // Usar confirm para web e Alert para mobile
-    if (typeof window !== 'undefined') {
-      // Web
-      const confirmed = window.confirm(`Deseja realmente excluir a meta "${goal.name}"?`);
-      if (confirmed) {
-        deleteGoal(goal.id);
-      }
-    } else {
-      // Mobile
-      Alert.alert(
-        'Confirmar exclusão',
-        `Deseja realmente excluir a meta "${goal.name}"?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Excluir',
-            style: 'destructive',
-            onPress: () => deleteGoal(goal.id),
-          },
-        ]
-      );
-    }
+    console.log('🗑️ Excluindo meta:', goal.name);
+    deleteGoal(goal.id);
   };
 
   const handleToggleGoalStatus = async (goal: Goal) => {

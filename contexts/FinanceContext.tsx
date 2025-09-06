@@ -407,17 +407,28 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
   };
 
   const deleteGoal = async (id: string) => {
+    console.log('🔥 deleteGoal chamada com ID:', id);
+    console.log('📊 Metas antes da exclusão:', goals.length);
+    
     try {
       const updatedGoals = goals.filter(goal => goal.id !== id);
       const updatedContributions = goalContributions.filter(contribution => contribution.goalId !== id);
       
+      console.log('📊 Metas após filtro:', updatedGoals.length);
+      console.log('💾 Salvando no AsyncStorage...');
+      
       await AsyncStorage.setItem('@Fintra:goals', JSON.stringify(updatedGoals));
       await AsyncStorage.setItem('@Fintra:goalContributions', JSON.stringify(updatedContributions));
       
+      console.log('✅ AsyncStorage atualizado');
+      console.log('🔄 Atualizando estados...');
+      
       setGoals(updatedGoals);
       setGoalContributions(updatedContributions);
+      
+      console.log('✅ Estados atualizados - exclusão concluída');
     } catch (error) {
-      console.error('Erro ao excluir meta:', error);
+      console.error('❌ Erro ao excluir meta:', error);
     }
   };
 
