@@ -15,6 +15,25 @@ interface Transaction {
   startYear?: number; // Ano de início da transação
 }
 
+interface Goal {
+  id: string;
+  name: string;
+  monthlyTarget: number; // Valor máximo a ser adicionado por mês
+  currentAmount: number; // Valor atual acumulado na meta
+  createdAt: Date;
+  isActive: boolean;
+}
+
+interface GoalContribution {
+  id: string;
+  goalId: string;
+  amount: number;
+  month: number;
+  year: number;
+  isComplete: boolean; // true se conseguiu adicionar o valor total, false se foi parcial
+  date: Date;
+}
+
 // Manter interface Expense para compatibilidade
 interface Expense extends Transaction {}
 
@@ -36,6 +55,15 @@ interface FinanceContextData {
   currentYear: number;
   setCurrentMonth: (month: number) => void;
   setCurrentYear: (year: number) => void;
+  // Funções de metas
+  goals: Goal[];
+  goalContributions: GoalContribution[];
+  addGoal: (goal: Omit<Goal, 'id' | 'currentAmount' | 'createdAt'>) => Promise<void>;
+  updateGoal: (goal: Goal) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
+  processMonthlyGoalContributions: (month: number, year: number) => Promise<void>;
+  getGoalContributionsByMonth: (month: number, year: number) => GoalContribution[];
+  getAvailableBalance: (month: number, year: number) => number;
 }
 
 const FinanceContext = createContext<FinanceContextData>({} as FinanceContextData);
@@ -52,6 +80,8 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
   const [balance, setBalance] = useState(0);
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [goalContributions, setGoalContributions] = useState<GoalContribution[]>([]);
 
   // Manter expenses para compatibilidade
   const expenses = transactions.filter(t => t.category === 'expense');
@@ -63,6 +93,8 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
         const storedSalary = await AsyncStorage.getItem('@Fintra:salary');
         const storedTransactions = await AsyncStorage.getItem('@Fintra:transactions');
         const storedExpenses = await AsyncStorage.getItem('@Fintra:expenses'); // Para migração
+        const storedGoals = await AsyncStorage.getItem('@Fintra:goals');
+        const storedGoalContributions = await AsyncStorage.getItem('@Fintra:goalContributions');
 
         if (storedSalary) {
           setSalaryState(Number(storedSalary));
@@ -79,6 +111,22 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
           }));
           setTransactions(migratedTransactions);
           await AsyncStorage.setItem('@Fintra:transactions', JSON.stringify(migratedTransactions));
+        }
+        
+        if (storedGoals) {
+          const parsedGoals = JSON.parse(storedGoals).map((g: any) => ({
+            ...g,
+            createdAt: new Date(g.createdAt)
+          }));
+          setGoals(parsedGoals);
+        }
+        
+        if (storedGoalContributions) {
+          const parsedContributions = JSON.parse(storedGoalContributions).map((c: any) => ({
+            ...c,
+            date: new Date(c.date)
+          }));
+          setGoalContributions(parsedContributions);
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -187,6 +235,34 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
     setBalance(salary + totalIncome - totalExpenses);
   }, [salary, transactions, currentMonth, currentYear]);
 
+  // Processar contribuições mensais automaticamente
+  useEffect(() => {
+    const processContributions = async () => {
+      // Só processar se for o mês atual e houver metas ativas
+      const now = new Date();
+      const isCurrentMonth = currentMonth === now.getMonth() + 1 && currentYear === now.getFullYear();
+      
+      if (isCurrentMonth && goals.some(g => g.isActive)) {
+        // Verificar se já processou este mês
+        const existingContributions = goalContributions.filter(
+          c => c.month === currentMonth && c.year === currentYear
+        );
+        
+        // Se não há contribuições para este mês e há saldo disponível, processar
+        if (existingContributions.length === 0) {
+          const availableBalance = getAvailableBalance(currentMonth, currentYear);
+          if (availableBalance > 0) {
+            await processMonthlyGoalContributions(currentMonth, currentYear);
+          }
+        }
+      }
+    };
+    
+    // Aguardar um pouco para garantir que todos os dados foram carregados
+    const timer = setTimeout(processContributions, 1000);
+    return () => clearTimeout(timer);
+  }, [transactions, goals, currentMonth, currentYear, salary]);
+
   // Função para definir o salário
   const setSalary = async (value: number) => {
     try {
@@ -278,6 +354,126 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
     await deleteTransaction(id);
   };
 
+  // Funções de metas
+  const addGoal = async (goal: Omit<Goal, 'id' | 'currentAmount' | 'createdAt'>) => {
+    try {
+      const newGoal: Goal = {
+        ...goal,
+        id: Date.now().toString(),
+        currentAmount: 0,
+        createdAt: new Date(),
+      };
+
+      const updatedGoals = [...goals, newGoal];
+      await AsyncStorage.setItem('@Fintra:goals', JSON.stringify(updatedGoals));
+      setGoals(updatedGoals);
+    } catch (error) {
+      console.error('Erro ao adicionar meta:', error);
+    }
+  };
+
+  const updateGoal = async (goal: Goal) => {
+    try {
+      const updatedGoals = goals.map(item => 
+        item.id === goal.id ? goal : item
+      );
+
+      await AsyncStorage.setItem('@Fintra:goals', JSON.stringify(updatedGoals));
+      setGoals(updatedGoals);
+    } catch (error) {
+      console.error('Erro ao atualizar meta:', error);
+    }
+  };
+
+  const deleteGoal = async (id: string) => {
+    try {
+      const updatedGoals = goals.filter(goal => goal.id !== id);
+      const updatedContributions = goalContributions.filter(contribution => contribution.goalId !== id);
+      
+      await AsyncStorage.setItem('@Fintra:goals', JSON.stringify(updatedGoals));
+      await AsyncStorage.setItem('@Fintra:goalContributions', JSON.stringify(updatedContributions));
+      
+      setGoals(updatedGoals);
+      setGoalContributions(updatedContributions);
+    } catch (error) {
+      console.error('Erro ao excluir meta:', error);
+    }
+  };
+
+  const processMonthlyGoalContributions = async (month: number, year: number) => {
+    try {
+      const activeGoals = goals.filter(goal => goal.isActive);
+      const availableBalance = getAvailableBalance(month, year);
+      
+      let remainingBalance = availableBalance;
+      const newContributions: GoalContribution[] = [];
+      
+      for (const goal of activeGoals) {
+        // Verificar se já existe contribuição para este mês
+        const existingContribution = goalContributions.find(
+          c => c.goalId === goal.id && c.month === month && c.year === year
+        );
+        
+        if (!existingContribution && remainingBalance > 0) {
+          const contributionAmount = Math.min(goal.monthlyTarget, remainingBalance);
+          
+          const contribution: GoalContribution = {
+            id: Date.now().toString() + goal.id,
+            goalId: goal.id,
+            amount: contributionAmount,
+            month,
+            year,
+            isComplete: contributionAmount === goal.monthlyTarget,
+            date: new Date(),
+          };
+          
+          newContributions.push(contribution);
+          remainingBalance -= contributionAmount;
+          
+          // Atualizar o valor atual da meta
+          const updatedGoal = {
+            ...goal,
+            currentAmount: goal.currentAmount + contributionAmount
+          };
+          
+          await updateGoal(updatedGoal);
+        }
+      }
+      
+      if (newContributions.length > 0) {
+        const updatedContributions = [...goalContributions, ...newContributions];
+        await AsyncStorage.setItem('@Fintra:goalContributions', JSON.stringify(updatedContributions));
+        setGoalContributions(updatedContributions);
+      }
+    } catch (error) {
+      console.error('Erro ao processar contribuições mensais:', error);
+    }
+  };
+
+  const getGoalContributionsByMonth = (month: number, year: number) => {
+    return goalContributions.filter(contribution => 
+      contribution.month === month && contribution.year === year
+    );
+  };
+
+  const getAvailableBalance = (month: number, year: number) => {
+    const monthlyTransactions = getTransactionsByMonth(month, year);
+    const monthlyContributions = getGoalContributionsByMonth(month, year);
+    
+    const totalExpenses = monthlyTransactions
+      .filter(t => t.category === 'expense')
+      .reduce((total, expense) => total + expense.amount, 0);
+    
+    const totalIncome = monthlyTransactions
+      .filter(t => t.category === 'income')
+      .reduce((total, income) => total + income.amount, 0);
+    
+    const totalGoalContributions = monthlyContributions
+      .reduce((total, contribution) => total + contribution.amount, 0);
+    
+    return salary + totalIncome - totalExpenses - totalGoalContributions;
+  };
+
   return (
     <FinanceContext.Provider
       value={{
@@ -298,6 +494,14 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
         currentYear,
         setCurrentMonth,
         setCurrentYear,
+        goals,
+        goalContributions,
+        addGoal,
+        updateGoal,
+        deleteGoal,
+        processMonthlyGoalContributions,
+        getGoalContributionsByMonth,
+        getAvailableBalance,
       }}
     >
       {children}

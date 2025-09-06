@@ -1,0 +1,546 @@
+import React, { useState, useContext, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Alert,
+  FlatList,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFinance } from '@/contexts/FinanceContext';
+
+interface Goal {
+  id: string;
+  name: string;
+  monthlyTarget: number;
+  currentAmount: number;
+  createdAt: Date;
+  isActive: boolean;
+}
+
+interface GoalContribution {
+  id: string;
+  goalId: string;
+  amount: number;
+  month: number;
+  year: number;
+  isComplete: boolean;
+  date: Date;
+}
+
+export default function Goals() {
+  const {
+    goals,
+    goalContributions,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    processMonthlyGoalContributions,
+    getGoalContributionsByMonth,
+    getAvailableBalance,
+    currentMonth,
+    currentYear,
+  } = useFinance();
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [goalName, setGoalName] = useState('');
+  const [monthlyTarget, setMonthlyTarget] = useState('');
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  const availableBalance = getAvailableBalance(currentMonth, currentYear);
+  const monthlyContributions = getGoalContributionsByMonth(currentMonth, currentYear);
+
+  const handleAddGoal = async () => {
+    if (!goalName.trim() || !monthlyTarget.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    const target = parseFloat(monthlyTarget.replace(',', '.'));
+    if (isNaN(target) || target <= 0) {
+      Alert.alert('Erro', 'Por favor, insira um valor válido.');
+      return;
+    }
+
+    try {
+      if (editingGoal) {
+        await updateGoal({
+          ...editingGoal,
+          name: goalName,
+          monthlyTarget: target,
+        });
+      } else {
+        await addGoal({
+          name: goalName,
+          monthlyTarget: target,
+          isActive: true,
+        });
+      }
+
+      setModalVisible(false);
+      setGoalName('');
+      setMonthlyTarget('');
+      setEditingGoal(null);
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível salvar a meta.');
+    }
+  };
+
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setGoalName(goal.name);
+    setMonthlyTarget(goal.monthlyTarget.toString());
+    setModalVisible(true);
+  };
+
+  const handleDeleteGoal = (goal: Goal) => {
+    Alert.alert(
+      'Confirmar exclusão',
+      `Deseja realmente excluir a meta "${goal.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => deleteGoal(goal.id),
+        },
+      ]
+    );
+  };
+
+  const handleToggleGoalStatus = async (goal: Goal) => {
+    await updateGoal({
+      ...goal,
+      isActive: !goal.isActive,
+    });
+  };
+
+  const handleProcessMonthlyContributions = async () => {
+    await processMonthlyGoalContributions(currentMonth, currentYear);
+    Alert.alert('Sucesso', 'Contribuições mensais processadas!');
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const getGoalProgress = (goal: Goal) => {
+    if (goal.monthlyTarget === 0) return 0;
+    return Math.min((goal.currentAmount / (goal.monthlyTarget * 12)) * 100, 100);
+  };
+
+  const renderGoalItem = ({ item: goal }: { item: Goal }) => {
+    const progress = getGoalProgress(goal);
+    const monthlyContribution = monthlyContributions.find(c => c.goalId === goal.id);
+    
+    return (
+      <View style={styles.goalCard}>
+        <View style={styles.goalHeader}>
+          <View style={styles.goalInfo}>
+            <Text style={styles.goalName}>{goal.name}</Text>
+            <Text style={styles.goalTarget}>
+              Meta mensal: {formatCurrency(goal.monthlyTarget)}
+            </Text>
+            <Text style={styles.goalCurrent}>
+              Total acumulado: {formatCurrency(goal.currentAmount)}
+            </Text>
+          </View>
+          <View style={styles.goalActions}>
+            <TouchableOpacity
+              style={[styles.statusButton, goal.isActive ? styles.activeButton : styles.inactiveButton]}
+              onPress={() => handleToggleGoalStatus(goal)}
+            >
+              <Text style={styles.statusButtonText}>
+                {goal.isActive ? 'Ativa' : 'Inativa'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => handleEditGoal(goal)}
+            >
+              <Ionicons name="pencil" size={16} color="#007AFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleDeleteGoal(goal)}
+            >
+              <Ionicons name="trash" size={16} color="#FF3B30" />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          </View>
+          <Text style={styles.progressText}>{progress.toFixed(1)}%</Text>
+        </View>
+        
+        {monthlyContribution && (
+          <View style={styles.monthlyContribution}>
+            <Text style={[
+              styles.contributionText,
+              monthlyContribution.isComplete ? styles.completeContribution : styles.incompleteContribution
+            ]}>
+              Este mês: {formatCurrency(monthlyContribution.amount)}
+              {!monthlyContribution.isComplete && ' (Valor incompleto)'}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Metas de Economia</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setModalVisible(true)}
+        >
+          <Ionicons name="add" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryTitle}>Resumo do Mês</Text>
+        <Text style={styles.summaryText}>
+          Saldo disponível: {formatCurrency(availableBalance)}
+        </Text>
+        <Text style={styles.summaryText}>
+          Contribuições processadas: {monthlyContributions.length}
+        </Text>
+        
+        {availableBalance > 0 && goals.some(g => g.isActive) && (
+          <TouchableOpacity
+            style={styles.processButton}
+            onPress={handleProcessMonthlyContributions}
+          >
+            <Text style={styles.processButtonText}>Processar Contribuições do Mês</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <FlatList
+        data={goals}
+        renderItem={renderGoalItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.goalsList}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="target" size={64} color="#C7C7CC" />
+            <Text style={styles.emptyText}>Nenhuma meta criada</Text>
+            <Text style={styles.emptySubtext}>Toque no + para adicionar sua primeira meta</Text>
+          </View>
+        }
+      />
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          setModalVisible(false);
+          setEditingGoal(null);
+          setGoalName('');
+          setMonthlyTarget('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {editingGoal ? 'Editar Meta' : 'Nova Meta'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisible(false);
+                  setEditingGoal(null);
+                  setGoalName('');
+                  setMonthlyTarget('');
+                }}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Nome da Meta</Text>
+              <TextInput
+                style={styles.input}
+                value={goalName}
+                onChangeText={setGoalName}
+                placeholder="Ex: Viagem de férias"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Valor Mensal (R$)</Text>
+              <TextInput
+                style={styles.input}
+                value={monthlyTarget}
+                onChangeText={setMonthlyTarget}
+                placeholder="Ex: 500,00"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleAddGoal}>
+              <Text style={styles.saveButtonText}>
+                {editingGoal ? 'Atualizar' : 'Criar Meta'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: 'white',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  addButton: {
+    backgroundColor: '#007AFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryCard: {
+    backgroundColor: 'white',
+    margin: 20,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#000',
+  },
+  summaryText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 5,
+  },
+  processButton: {
+    backgroundColor: '#34C759',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  processButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goalsList: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  goalCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 15,
+  },
+  goalInfo: {
+    flex: 1,
+  },
+  goalName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 5,
+  },
+  goalTarget: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  goalCurrent: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  goalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  activeButton: {
+    backgroundColor: '#34C759',
+  },
+  inactiveButton: {
+    backgroundColor: '#FF9500',
+  },
+  statusButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  editButton: {
+    padding: 8,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#007AFF',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  monthlyContribution: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+  },
+  contributionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  completeContribution: {
+    color: '#34C759',
+  },
+  incompleteContribution: {
+    color: '#FF3B30',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#C7C7CC',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#C7C7CC',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000',
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#F2F2F7',
+  },
+  saveButton: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
