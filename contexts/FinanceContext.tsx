@@ -59,6 +59,8 @@ interface FinanceContextData {
   // Funções de metas
   goals: Goal[];
   goalContributions: GoalContribution[];
+  goalContributionDay: number; // Dia do mês para adicionar valores às metas (1-31)
+  setGoalContributionDay: (day: number) => Promise<void>;
   addGoal: (goal: Omit<Goal, 'id' | 'currentAmount' | 'createdAt'>) => Promise<void>;
   updateGoal: (goal: Goal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
@@ -83,6 +85,7 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [goals, setGoals] = useState<Goal[]>([]);
   const [goalContributions, setGoalContributions] = useState<GoalContribution[]>([]);
+  const [goalContributionDay, setGoalContributionDayState] = useState<number>(1); // Padrão: dia 1
 
   // Manter expenses para compatibilidade
   const expenses = transactions.filter(t => t.category === 'expense');
@@ -96,6 +99,7 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
         const storedExpenses = await AsyncStorage.getItem('@Fintra:expenses'); // Para migração
         const storedGoals = await AsyncStorage.getItem('@Fintra:goals');
         const storedGoalContributions = await AsyncStorage.getItem('@Fintra:goalContributions');
+        const storedGoalContributionDay = await AsyncStorage.getItem('@Fintra:goalContributionDay');
 
         if (storedSalary) {
           setSalaryState(Number(storedSalary));
@@ -128,6 +132,10 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
             date: new Date(c.date)
           }));
           setGoalContributions(parsedContributions);
+        }
+        
+        if (storedGoalContributionDay) {
+          setGoalContributionDayState(Number(storedGoalContributionDay));
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -271,6 +279,18 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
       setSalaryState(value);
     } catch (error) {
       console.error('Erro ao salvar salário:', error);
+    }
+  };
+
+  const setGoalContributionDay = async (day: number) => {
+    try {
+      if (day < 1 || day > 31) {
+        throw new Error('Dia deve estar entre 1 e 31');
+      }
+      await AsyncStorage.setItem('@Fintra:goalContributionDay', String(day));
+      setGoalContributionDayState(day);
+    } catch (error) {
+      console.error('Erro ao salvar dia de contribuição das metas:', error);
     }
   };
 
@@ -497,6 +517,8 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
         setCurrentYear,
         goals,
         goalContributions,
+        goalContributionDay,
+        setGoalContributionDay,
         addGoal,
         updateGoal,
         deleteGoal,

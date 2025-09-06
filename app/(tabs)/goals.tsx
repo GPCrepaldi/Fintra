@@ -37,6 +37,8 @@ export default function Goals() {
   const {
     goals,
     goalContributions,
+    goalContributionDay,
+    setGoalContributionDay,
     addGoal,
     updateGoal,
     deleteGoal,
@@ -52,9 +54,32 @@ export default function Goals() {
   const [totalTarget, setTotalTarget] = useState('');
   const [monthlyTarget, setMonthlyTarget] = useState('');
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [configModalVisible, setConfigModalVisible] = useState(false);
+  const [tempContributionDay, setTempContributionDay] = useState(goalContributionDay.toString());
 
   const availableBalance = getAvailableBalance(currentMonth, currentYear);
   const monthlyContributions = getGoalContributionsByMonth(currentMonth, currentYear);
+
+  // Atualizar tempContributionDay quando goalContributionDay mudar
+  useEffect(() => {
+    setTempContributionDay(goalContributionDay.toString());
+  }, [goalContributionDay]);
+
+  const handleSaveContributionDay = async () => {
+    const day = parseInt(tempContributionDay);
+    if (isNaN(day) || day < 1 || day > 31) {
+      Alert.alert('Erro', 'Por favor, insira um dia válido entre 1 e 31.');
+      return;
+    }
+    
+    try {
+      await setGoalContributionDay(day);
+      setConfigModalVisible(false);
+      Alert.alert('Sucesso', 'Dia de contribuição atualizado com sucesso!');
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao salvar configuração.');
+    }
+  };
 
   const handleAddGoal = async () => {
     if (!goalName.trim() || !totalTarget.trim() || !monthlyTarget.trim()) {
@@ -111,18 +136,28 @@ export default function Goals() {
   };
 
   const handleDeleteGoal = (goal: Goal) => {
-    Alert.alert(
-      'Confirmar exclusão',
-      `Deseja realmente excluir a meta "${goal.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => deleteGoal(goal.id),
-        },
-      ]
-    );
+    // Usar confirm para web e Alert para mobile
+    if (typeof window !== 'undefined') {
+      // Web
+      const confirmed = window.confirm(`Deseja realmente excluir a meta "${goal.name}"?`);
+      if (confirmed) {
+        deleteGoal(goal.id);
+      }
+    } else {
+      // Mobile
+      Alert.alert(
+        'Confirmar exclusão',
+        `Deseja realmente excluir a meta "${goal.name}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Excluir',
+            style: 'destructive',
+            onPress: () => deleteGoal(goal.id),
+          },
+        ]
+      );
+    }
   };
 
   const handleToggleGoalStatus = async (goal: Goal) => {
@@ -218,12 +253,20 @@ export default function Goals() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Metas de Economia</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.configButton} 
+            onPress={() => setConfigModalVisible(true)}
+          >
+            <Ionicons name="settings-outline" size={24} color="#007AFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setModalVisible(true)}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.summaryCard}>
@@ -233,6 +276,9 @@ export default function Goals() {
         </Text>
         <Text style={styles.summaryText}>
           Contribuições processadas: {monthlyContributions.length}
+        </Text>
+        <Text style={styles.summaryText}>
+          Dia de contribuição: {goalContributionDay}
         </Text>
         
         {availableBalance > 0 && goals.some(g => g.isActive) && (
@@ -334,6 +380,46 @@ export default function Goals() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de Configuração do Dia de Contribuição */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={configModalVisible}
+        onRequestClose={() => setConfigModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Configurar Dia de Contribuição</Text>
+              <TouchableOpacity onPress={() => setConfigModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.configDescription}>
+              Defina o dia do mês em que os valores serão adicionados automaticamente às suas metas. Esta configuração se aplica a todas as metas.
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Dia do Mês (1-31)</Text>
+              <TextInput
+                style={styles.input}
+                value={tempContributionDay}
+                onChangeText={setTempContributionDay}
+                placeholder="Ex: 15"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                maxLength={2}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveContributionDay}>
+              <Text style={styles.saveButtonText}>Salvar Configuração</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -356,6 +442,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#000',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  configButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
   },
   addButton: {
     backgroundColor: '#007AFF',
@@ -572,5 +671,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  configDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 20,
+    textAlign: 'center',
   },
 });
