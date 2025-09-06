@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,15 +17,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 
-interface Goal {
-  id: string;
-  name: string;
-  totalTarget: number;
-  monthlyTarget: number;
-  currentAmount: number;
-  createdAt: Date;
-  isActive: boolean;
-}
+// Interface Goal removida - usando a do FinanceContext
 
 interface GoalContribution {
   id: string;
@@ -58,8 +50,9 @@ export default function Goals() {
   const [modalVisible, setModalVisible] = useState(false);
   const [goalName, setGoalName] = useState('');
   const [totalTarget, setTotalTarget] = useState('');
-  const [monthlyTarget, setMonthlyTarget] = useState('');
-  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [contributionType, setContributionType] = useState<'fixed' | 'percentage'>('fixed');
+  const [contributionValue, setContributionValue] = useState('');
+  const [editingGoal, setEditingGoal] = useState<any>(null);
   const [configModalVisible, setConfigModalVisible] = useState(false);
   const [tempContributionDay, setTempContributionDay] = useState(goalContributionDay.toString());
 
@@ -88,21 +81,21 @@ export default function Goals() {
   };
 
   const handleAddGoal = async () => {
-    if (!goalName.trim() || !totalTarget.trim() || !monthlyTarget.trim()) {
+    if (!goalName.trim() || !totalTarget.trim() || !contributionValue.trim()) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
     const total = parseFloat(totalTarget.replace(',', '.'));
-    const monthly = parseFloat(monthlyTarget.replace(',', '.'));
+    const contribution = parseFloat(contributionValue.replace(',', '.'));
     
-    if (isNaN(total) || total <= 0 || isNaN(monthly) || monthly <= 0) {
+    if (isNaN(total) || total <= 0 || isNaN(contribution) || contribution <= 0) {
       Alert.alert('Erro', 'Por favor, insira valores válidos.');
       return;
     }
 
-    if (monthly > total) {
-      Alert.alert('Erro', 'O valor mensal não pode ser maior que o valor total da meta.');
+    if (contributionType === 'percentage' && contribution > 100) {
+      Alert.alert('Erro', 'A porcentagem não pode ser maior que 100%.');
       return;
     }
 
@@ -112,13 +105,15 @@ export default function Goals() {
           ...editingGoal,
           name: goalName,
           totalTarget: total,
-          monthlyTarget: monthly,
+          contributionType,
+          contributionValue: contribution,
         });
       } else {
         await addGoal({
           name: goalName,
           totalTarget: total,
-          monthlyTarget: monthly,
+          contributionType,
+          contributionValue: contribution,
           isActive: true,
         });
       }
@@ -126,27 +121,29 @@ export default function Goals() {
       setModalVisible(false);
       setGoalName('');
       setTotalTarget('');
-      setMonthlyTarget('');
+      setContributionType('fixed');
+      setContributionValue('');
       setEditingGoal(null);
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível salvar a meta.');
     }
   };
 
-  const handleEditGoal = (goal: Goal) => {
+  const handleEditGoal = (goal: any) => {
     setEditingGoal(goal);
     setGoalName(goal.name);
     setTotalTarget(goal.totalTarget?.toString() || '');
-    setMonthlyTarget(goal.monthlyTarget.toString());
+    setContributionType(goal.contributionType || 'fixed');
+    setContributionValue(goal.contributionValue?.toString() || '');
     setModalVisible(true);
   };
 
-  const handleDeleteGoal = (goal: Goal) => {
+  const handleDeleteGoal = (goal: any) => {
     console.log('🗑️ Excluindo meta:', goal.name);
     deleteGoal(goal.id);
   };
 
-  const handleToggleGoalStatus = async (goal: Goal) => {
+  const handleToggleGoalStatus = async (goal: any) => {
     await updateGoal({
       ...goal,
       isActive: !goal.isActive,
@@ -165,12 +162,12 @@ export default function Goals() {
     }).format(value);
   };
 
-  const getGoalProgress = (goal: Goal) => {
+  const getGoalProgress = (goal: any) => {
     if (goal.totalTarget === 0) return 0;
     return Math.min((goal.currentAmount / goal.totalTarget) * 100, 100);
   };
 
-  const renderGoalItem = ({ item: goal }: { item: Goal }) => {
+  const renderGoalItem = ({ item: goal }: { item: any }) => {
     const progress = getGoalProgress(goal);
     const monthlyContribution = monthlyContributions.find(c => c.goalId === goal.id);
     
@@ -183,7 +180,7 @@ export default function Goals() {
               Meta total: {formatCurrency(goal.totalTarget)}
             </ThemedText>
             <ThemedText style={styles.goalTarget}>
-              Meta mensal: {formatCurrency(goal.monthlyTarget)}
+              Contribuição: {goal.contributionType === 'percentage' ? `${goal.contributionValue}%` : formatCurrency(goal.contributionValue)}
             </ThemedText>
             <ThemedText style={styles.goalCurrent}>
               Total acumulado: {formatCurrency(goal.currentAmount)}
@@ -234,7 +231,9 @@ export default function Goals() {
               {monthlyContribution.isComplete ? ' ✓' : ' ⏳'}
             </Text>
           </View>
-        )}      </ThemedView>    );
+        )}
+      </ThemedView>
+    );
   };
 
   return (
@@ -306,7 +305,8 @@ export default function Goals() {
           setEditingGoal(null);
           setGoalName('');
           setTotalTarget('');
-          setMonthlyTarget('');
+          setContributionType('fixed');
+          setContributionValue('');
         }}
       >
         <View style={styles.modalOverlay}>
@@ -321,7 +321,8 @@ export default function Goals() {
                   setEditingGoal(null);
                   setGoalName('');
                   setTotalTarget('');
-                  setMonthlyTarget('');
+                  setContributionType('fixed');
+                  setContributionValue('');
                 }}
               >
                 <Ionicons name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
@@ -359,17 +360,43 @@ export default function Goals() {
               />
             </View>
 
+
+
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>Valor Mensal (R$)</ThemedText>
+              <ThemedText style={styles.inputLabel}>Tipo de Contribuição</ThemedText>
+              <View style={styles.contributionTypeContainer}>
+                <TouchableOpacity
+                  style={[styles.typeButton, contributionType === 'fixed' && styles.activeTypeButton]}
+                  onPress={() => setContributionType('fixed')}
+                >
+                  <Text style={[styles.typeButtonText, contributionType === 'fixed' && styles.activeTypeButtonText]}>
+                    Valor Fixo
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.typeButton, contributionType === 'percentage' && styles.activeTypeButton]}
+                  onPress={() => setContributionType('percentage')}
+                >
+                  <Text style={[styles.typeButtonText, contributionType === 'percentage' && styles.activeTypeButtonText]}>
+                    Porcentagem
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.inputLabel}>
+                {contributionType === 'fixed' ? 'Valor da Contribuição (R$)' : 'Porcentagem do Saldo (%)'}
+              </ThemedText>
               <TextInput
                 style={[styles.input, { 
                   backgroundColor: Colors[colorScheme ?? 'light'].background,
                   borderColor: Colors[colorScheme ?? 'light'].tabIconDefault,
                   color: Colors[colorScheme ?? 'light'].text
                 }]}
-                value={monthlyTarget}
-                onChangeText={setMonthlyTarget}
-                placeholder="Ex: 500,00"
+                value={contributionValue}
+                onChangeText={setContributionValue}
+                placeholder={contributionType === 'fixed' ? 'Ex: 200,00' : 'Ex: 10'}
                 placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
                 keyboardType="numeric"
               />
@@ -666,5 +693,31 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 20,
     textAlign: 'center',
+  },
+  contributionTypeContainer: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeTypeButton: {
+    backgroundColor: '#007AFF',
+  },
+  typeButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666',
+  },
+  activeTypeButtonText: {
+    color: 'white',
   },
 });

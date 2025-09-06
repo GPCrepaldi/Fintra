@@ -19,10 +19,11 @@ interface Goal {
   id: string;
   name: string;
   totalTarget: number; // Valor total da meta
-  monthlyTarget: number; // Valor máximo a ser adicionado por mês
   currentAmount: number; // Valor atual acumulado na meta
   createdAt: Date;
   isActive: boolean;
+  contributionType: 'fixed' | 'percentage';
+  contributionValue: number; // valor fixo ou porcentagem
 }
 
 interface GoalContribution {
@@ -383,6 +384,8 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
         id: Date.now().toString(),
         currentAmount: 0,
         createdAt: new Date(),
+        contributionType: goal.contributionType || 'fixed',
+        contributionValue: goal.contributionValue || 0,
       };
 
       const updatedGoals = [...goals, newGoal];
@@ -447,7 +450,21 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
         );
         
         if (!existingContribution && remainingBalance > 0) {
-          const contributionAmount = Math.min(goal.monthlyTarget, remainingBalance);
+          let contributionAmount: number;
+          
+          if (goal.contributionType === 'percentage') {
+            // Calcular porcentagem do saldo disponível
+            contributionAmount = (availableBalance * goal.contributionValue) / 100;
+          } else {
+            // Valor fixo
+            contributionAmount = goal.contributionValue;
+          }
+          
+          // Limitar pelo saldo disponível
+          contributionAmount = Math.min(
+            contributionAmount,
+            remainingBalance
+          );
           
           const contribution: GoalContribution = {
             id: Date.now().toString() + goal.id,
@@ -455,7 +472,7 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
             amount: contributionAmount,
             month,
             year,
-            isComplete: contributionAmount === goal.monthlyTarget,
+            isComplete: contributionAmount > 0,
             date: new Date(),
           };
           
