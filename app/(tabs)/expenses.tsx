@@ -101,7 +101,9 @@ export default function ExpensesScreen() {
       return;
     }
 
-    if (!editAmount.trim() || isNaN(Number(editAmount)) || Number(editAmount) <= 0) {
+    // Normalizar o valor: substituir vírgula por ponto
+    const normalizedEditAmount = editAmount.trim().replace(',', '.');
+    if (!normalizedEditAmount || isNaN(Number(normalizedEditAmount)) || Number(normalizedEditAmount) <= 0) {
       Alert.alert('Erro', 'Por favor, informe um valor válido para o gasto.');
       return;
     }
@@ -120,7 +122,7 @@ export default function ExpensesScreen() {
     const updatedExpense = {
       ...editingExpense,
       description: editDescription.trim(),
-      amount: Number(editAmount),
+      amount: Number(normalizedEditAmount),
       type: editIsCredit ? 'credit' : 'debit',
       isRecurring: editIsCredit ? editIsRecurring : false,
       dueDay: editIsCredit && editIsRecurring ? Number(editDueDay) : undefined,

@@ -17,15 +17,16 @@ export default function SettingsScreen() {
   }, [contextSalary]);
 
   const handleSaveSalary = async () => {
-    // Validar o salário
-    if (!salary.trim() || isNaN(Number(salary)) || Number(salary) < 0) {
+    // Normalizar o valor: substituir vírgula por ponto
+    const normalizedSalary = salary.trim().replace(',', '.');
+    if (!normalizedSalary || isNaN(Number(normalizedSalary)) || Number(normalizedSalary) < 0) {
       Alert.alert('Erro', 'Por favor, informe um valor válido para o salário.');
       return;
     }
 
     // Salvar o salário no contexto
-    await setContextSalary(Number(salary));
-    Alert.alert('Sucesso', `Salário de R$ ${salary} definido com sucesso!`);
+    await setContextSalary(Number(normalizedSalary));
+    Alert.alert('Sucesso', `Salário de R$ ${Number(normalizedSalary).toFixed(2)} definido com sucesso!`);
   };
 
   return (

@@ -25,7 +25,9 @@ export default function AddExpenseScreen() {
       return;
     }
 
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+    // Normalizar o valor: substituir vírgula por ponto
+    const normalizedAmount = amount.trim().replace(',', '.');
+    if (!normalizedAmount || isNaN(Number(normalizedAmount)) || Number(normalizedAmount) <= 0) {
       Alert.alert('Erro', 'Por favor, informe um valor válido para o gasto.');
       return;
     }
@@ -43,7 +45,7 @@ export default function AddExpenseScreen() {
     // Criar objeto de gasto
     const newExpense = {
       description: description.trim(),
-      amount: Number(amount),
+      amount: Number(normalizedAmount),
       date: new Date(),
       type: isCredit ? 'credit' : 'debit',
       isRecurring: isCredit ? isRecurring : false,
