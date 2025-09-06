@@ -7,12 +7,13 @@ import { Colors } from '@/constants/Colors';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useFinance } from '@/contexts/FinanceContext';
 
-interface Expense {
+interface Transaction {
   id: string;
   description: string;
   amount: number;
   date: Date;
-  type: 'credit' | 'debit';
+  category: 'expense' | 'income';
+  type: 'credit' | 'debit' | 'income';
   isRecurring?: boolean;
   dueDay?: number;
   recurringMonths?: number;
@@ -21,13 +22,14 @@ interface Expense {
 }
 
 export default function ExpensesScreen() {
-  const { expenses, updateExpense, deleteExpense, currentMonth, currentYear, setCurrentMonth, setCurrentYear, getExpensesByMonth } = useFinance();
+  const { transactions, updateTransaction, deleteTransaction, currentMonth, currentYear, setCurrentMonth, setCurrentYear, getTransactionsByMonth } = useFinance();
 
   // Estado para o modal de edição
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editDescription, setEditDescription] = useState('');
   const [editAmount, setEditAmount] = useState('');
+  const [editIsIncome, setEditIsIncome] = useState(false);
   const [editIsCredit, setEditIsCredit] = useState(false);
   const [editIsRecurring, setEditIsRecurring] = useState(false);
   const [editDueDay, setEditDueDay] = useState('');
@@ -35,11 +37,16 @@ export default function ExpensesScreen() {
 
   const colorScheme = useColorScheme();
 
-  // Obter os gastos do mês atual
-  const currentMonthExpenses = getExpensesByMonth(currentMonth, currentYear);
+  // Obter as transações do mês atual
+  const currentMonthTransactions = getTransactionsByMonth(currentMonth, currentYear);
   
-  // Calcular o total de gastos do mês atual
+  // Separar gastos e ganhos
+  const currentMonthExpenses = currentMonthTransactions.filter(t => t.category === 'expense');
+  const currentMonthIncomes = currentMonthTransactions.filter(t => t.category === 'income');
+  
+  // Calcular totais
   const totalExpenses = currentMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const totalIncomes = currentMonthIncomes.reduce((total, income) => total + income.amount, 0);
   
   // Calcular gastos por tipo
   const debitExpenses = currentMonthExpenses
@@ -80,75 +87,77 @@ export default function ExpensesScreen() {
   };
 
   // Função para abrir o modal de edição
-  const handleEdit = (expense: Expense) => {
-    setEditingExpense(expense);
-    setEditDescription(expense.description);
-    setEditAmount(expense.amount.toString());
-    setEditIsCredit(expense.type === 'credit');
-    setEditIsRecurring(expense.isRecurring || false);
-    setEditDueDay(expense.dueDay?.toString() || '');
-    setEditRecurringMonths(expense.recurringMonths?.toString() || '');
+  const handleEdit = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setEditDescription(transaction.description);
+    setEditAmount(transaction.amount.toString());
+    setEditIsIncome(transaction.category === 'income');
+    setEditIsCredit(transaction.type === 'credit');
+    setEditIsRecurring(transaction.isRecurring || false);
+    setEditDueDay(transaction.dueDay?.toString() || '');
+    setEditRecurringMonths(transaction.recurringMonths?.toString() || '');
     setModalVisible(true);
   };
 
   // Função para salvar as alterações
   const handleSaveEdit = async () => {
-    if (!editingExpense) return;
+    if (!editingTransaction) return;
 
     // Validar campos
     if (!editDescription.trim()) {
-      Alert.alert('Erro', 'Por favor, informe uma descrição para o gasto.');
+      Alert.alert('Erro', `Por favor, informe uma descrição para ${editIsIncome ? 'o ganho' : 'o gasto'}.`);
       return;
     }
 
     // Normalizar o valor: substituir vírgula por ponto
     const normalizedEditAmount = editAmount.trim().replace(',', '.');
     if (!normalizedEditAmount || isNaN(Number(normalizedEditAmount)) || Number(normalizedEditAmount) <= 0) {
-      Alert.alert('Erro', 'Por favor, informe um valor válido para o gasto.');
+      Alert.alert('Erro', `Por favor, informe um valor válido para ${editIsIncome ? 'o ganho' : 'o gasto'}.`);
       return;
     }
 
-    if (editIsCredit && editIsRecurring && (!editDueDay.trim() || isNaN(Number(editDueDay)) || Number(editDueDay) < 1 || Number(editDueDay) > 31)) {
+    if (!editIsIncome && editIsCredit && editIsRecurring && (!editDueDay.trim() || isNaN(Number(editDueDay)) || Number(editDueDay) < 1 || Number(editDueDay) > 31)) {
       Alert.alert('Erro', 'Por favor, informe um dia de vencimento válido (1-31).');
       return;
     }
 
-    if (editIsCredit && editIsRecurring && (!editRecurringMonths.trim() || isNaN(Number(editRecurringMonths)) || Number(editRecurringMonths) < 1)) {
+    if (!editIsIncome && editIsCredit && editIsRecurring && (!editRecurringMonths.trim() || isNaN(Number(editRecurringMonths)) || Number(editRecurringMonths) < 1)) {
       Alert.alert('Erro', 'Por favor, informe um número válido de meses para recorrência.');
       return;
     }
 
-    // Atualizar o gasto usando o contexto
-    const updatedExpense = {
-      ...editingExpense,
+    // Atualizar a transação usando o contexto
+    const updatedTransaction = {
+      ...editingTransaction,
       description: editDescription.trim(),
       amount: Number(normalizedEditAmount),
-      type: editIsCredit ? 'credit' : 'debit',
-      isRecurring: editIsCredit ? editIsRecurring : false,
-      dueDay: editIsCredit && editIsRecurring ? Number(editDueDay) : undefined,
-      recurringMonths: editIsCredit && editIsRecurring ? Number(editRecurringMonths) : undefined,
-      startMonth: editingExpense.startMonth || (editIsCredit && editIsRecurring ? new Date().getMonth() + 1 : undefined),
-      startYear: editingExpense.startYear || (editIsCredit && editIsRecurring ? new Date().getFullYear() : undefined),
+      category: editIsIncome ? 'income' : 'expense',
+      type: editIsIncome ? 'income' : (editIsCredit ? 'credit' : 'debit'),
+      isRecurring: editIsIncome ? false : (editIsCredit ? editIsRecurring : false),
+      dueDay: !editIsIncome && editIsCredit && editIsRecurring ? Number(editDueDay) : undefined,
+      recurringMonths: !editIsIncome && editIsCredit && editIsRecurring ? Number(editRecurringMonths) : undefined,
+      startMonth: editingTransaction.startMonth || (!editIsIncome && editIsCredit && editIsRecurring ? new Date().getMonth() + 1 : undefined),
+      startYear: editingTransaction.startYear || (!editIsIncome && editIsCredit && editIsRecurring ? new Date().getFullYear() : undefined),
     };
 
-    await updateExpense(updatedExpense);
+    await updateTransaction(updatedTransaction);
     setModalVisible(false);
-    Alert.alert('Sucesso', 'Gasto atualizado com sucesso!');
+    Alert.alert('Sucesso', `${editIsIncome ? 'Ganho' : 'Gasto'} atualizado com sucesso!`);
   };
 
-  // Função para excluir um gasto
-  const handleDelete = (id: string) => {
-    console.log('Tentando excluir gasto com ID:', id, typeof id); // Log para debug
+  // Função para excluir uma transação
+  const handleDelete = (id: string, isIncome: boolean) => {
+    console.log('Tentando excluir transação com ID:', id, typeof id); // Log para debug
     
     if (!id) {
       console.error('ID inválido:', id);
-      Alert.alert('Erro', 'ID do gasto inválido.');
+      Alert.alert('Erro', 'ID da transação inválido.');
       return;
     }
     
     Alert.alert(
       'Confirmar Exclusão',
-      'Tem certeza que deseja excluir este gasto?',
+      `Tem certeza que deseja excluir este ${isIncome ? 'ganho' : 'gasto'}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
@@ -158,28 +167,28 @@ export default function ExpensesScreen() {
             try {
               console.log('Confirmou exclusão do ID:', id);
               
-              // Verificar se o ID existe na lista de despesas
-              const expenseToDelete = expenses.find(expense => expense.id === id);
+              // Verificar se o ID existe na lista de transações
+              const transactionToDelete = transactions.find(transaction => transaction.id === id);
               
-              if (!expenseToDelete) {
-                console.error('Despesa não encontrada com ID:', id);
-                Alert.alert('Erro', 'Despesa não encontrada.');
+              if (!transactionToDelete) {
+                console.error('Transação não encontrada com ID:', id);
+                Alert.alert('Erro', 'Transação não encontrada.');
                 return;
               }
               
-              console.log('Despesa a ser excluída:', expenseToDelete);
+              console.log('Transação a ser excluída:', transactionToDelete);
               
-              await deleteExpense(id);
+              await deleteTransaction(id);
               
               // Forçar uma atualização da interface
               Alert.alert(
                 'Sucesso', 
-                'Gasto excluído com sucesso!',
+                `${isIncome ? 'Ganho' : 'Gasto'} excluído com sucesso!`,
                 [{ text: 'OK' }]
               );
             } catch (error) {
               console.error('Erro ao excluir:', error);
-              Alert.alert('Erro', 'Não foi possível excluir o gasto. Tente novamente.');
+              Alert.alert('Erro', `Não foi possível excluir ${isIncome ? 'o ganho' : 'o gasto'}. Tente novamente.`);
             }
           } 
         },
@@ -188,8 +197,9 @@ export default function ExpensesScreen() {
   };
 
   // Renderizar cada item da lista
-  const renderExpenseItem = ({ item }: { item: Expense }) => {
+  const renderTransactionItem = ({ item }: { item: Transaction }) => {
     const formattedDate = new Date(item.date).toLocaleDateString('pt-BR');
+    const isIncome = item.category === 'income';
     console.log('Renderizando item com ID:', item.id); // Adicionar log para verificar o ID
     
     return (
@@ -205,7 +215,7 @@ export default function ExpensesScreen() {
                 const itemId = item.id;
                 console.log('Botão de exclusão pressionado para ID:', itemId, typeof itemId);
                 // Garantir que o ID seja uma string
-                handleDelete(String(itemId));
+                handleDelete(String(itemId), isIncome);
               }} 
               style={[styles.actionButton, { 
                 backgroundColor: 'rgba(231,76,60,0.1)',
@@ -223,8 +233,8 @@ export default function ExpensesScreen() {
           <ThemedText>Valor: R$ {item.amount.toFixed(2)}</ThemedText>
           <ThemedText>Data: {formattedDate}</ThemedText>
           <ThemedText>
-            Tipo: {item.type === 'credit' ? 'Crédito' : 'Débito'}
-            {item.type === 'credit' && item.isRecurring && ` (Recorrente, dia ${item.dueDay}, ${item.recurringMonths} meses)`}
+            {isIncome ? 'Ganho' : `Tipo: ${item.type === 'credit' ? 'Crédito' : 'Débito'}`}
+            {!isIncome && item.type === 'credit' && item.isRecurring && ` (Recorrente, dia ${item.dueDay}, ${item.recurringMonths} meses)`}
           </ThemedText>
         </ThemedView>
       </ThemedView>
@@ -233,7 +243,7 @@ export default function ExpensesScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Seus Gastos</ThemedText>
+      <ThemedText type="title" style={styles.title}>Suas Transações</ThemedText>
       
       {/* Navegação entre meses */}
       <ThemedView style={styles.monthNavigation}>
@@ -250,10 +260,10 @@ export default function ExpensesScreen() {
         </TouchableOpacity>
       </ThemedView>
       
-      {/* Resumo dos gastos */}
+      {/* Resumo das transações */}
       <ThemedView style={styles.summaryContainer}>
         <ThemedText type="defaultSemiBold" style={styles.summaryText}>
-          Total: R$ {totalExpenses.toFixed(2)}
+          Gastos: R$ {totalExpenses.toFixed(2)} | Ganhos: R$ {totalIncomes.toFixed(2)}
         </ThemedText>
         <ThemedView style={styles.summaryDetails}>
           <ThemedText style={styles.summaryDetailText}>Débito: R$ {debitExpenses.toFixed(2)}</ThemedText>
@@ -261,16 +271,16 @@ export default function ExpensesScreen() {
         </ThemedView>
       </ThemedView>
       
-      {currentMonthExpenses.length === 0 ? (
+      {currentMonthTransactions.length === 0 ? (
         <ThemedView style={styles.emptyContainer}>
           <ThemedText style={styles.emptyText}>
-            Você não possui gastos cadastrados para {getMonthName(currentMonth)} de {currentYear}.
+            Você não possui transações cadastradas para {getMonthName(currentMonth)} de {currentYear}.
           </ThemedText>
         </ThemedView>
       ) : (
         <FlatList
-          data={currentMonthExpenses}
-          renderItem={renderExpenseItem}
+          data={currentMonthTransactions}
+          renderItem={renderTransactionItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContainer}
         />
@@ -285,7 +295,26 @@ export default function ExpensesScreen() {
       >
         <ThemedView style={styles.modalOverlay}>
           <ThemedView style={styles.modalContainer}>
-            <ThemedText type="subtitle" style={styles.modalTitle}>Editar Gasto</ThemedText>
+            <ThemedText type="subtitle" style={styles.modalTitle}>Editar {editIsIncome ? 'Ganho' : 'Gasto'}</ThemedText>
+            
+            {/* Seletor de tipo de transação */}
+            <ThemedView style={styles.formGroup}>
+              <ThemedText>Tipo de Transação</ThemedText>
+              <ThemedView style={styles.typeSelector}>
+                <TouchableOpacity
+                  style={[styles.typeButton, !editIsIncome && styles.typeButtonActive]}
+                  onPress={() => setEditIsIncome(false)}
+                >
+                  <ThemedText style={[styles.typeButtonText, !editIsIncome && styles.typeButtonTextActive]}>Gasto</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.typeButton, editIsIncome && styles.typeButtonActive]}
+                  onPress={() => setEditIsIncome(true)}
+                >
+                  <ThemedText style={[styles.typeButtonText, editIsIncome && styles.typeButtonTextActive]}>Ganho</ThemedText>
+                </TouchableOpacity>
+              </ThemedView>
+            </ThemedView>
             
             <ThemedView style={styles.formGroup}>
               <ThemedText>Descrição</ThemedText>
@@ -306,16 +335,18 @@ export default function ExpensesScreen() {
               />
             </ThemedView>
             
-            <ThemedView style={styles.switchContainer}>
-              <ThemedText>Crédito</ThemedText>
-              <Switch
-                value={editIsCredit}
-                onValueChange={setEditIsCredit}
-                trackColor={{ false: '#767577', true: Colors[colorScheme ?? 'light'].tint }}
-              />
-            </ThemedView>
+            {!editIsIncome && (
+              <ThemedView style={styles.switchContainer}>
+                <ThemedText>Crédito</ThemedText>
+                <Switch
+                  value={editIsCredit}
+                  onValueChange={setEditIsCredit}
+                  trackColor={{ false: '#767577', true: Colors[colorScheme ?? 'light'].tint }}
+                />
+              </ThemedView>
+            )}
             
-            {editIsCredit && (
+            {!editIsIncome && editIsCredit && (
               <ThemedView style={styles.switchContainer}>
                 <ThemedText>Gasto Recorrente</ThemedText>
                 <Switch
@@ -326,7 +357,7 @@ export default function ExpensesScreen() {
               </ThemedView>
             )}
             
-            {editIsCredit && editIsRecurring && (
+            {!editIsIncome && editIsCredit && editIsRecurring && (
               <>
                 <ThemedView style={styles.formGroup}>
                   <ThemedText>Dia de Vencimento</ThemedText>
@@ -514,5 +545,31 @@ const styles = StyleSheet.create({
   },
   summaryDetailText: {
     fontSize: 14,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  typeButtonActive: {
+    backgroundColor: '#007AFF',
+  },
+  typeButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
   },
 });

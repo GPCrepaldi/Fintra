@@ -10,44 +10,47 @@ import { useFinance } from '@/contexts/FinanceContext';
 export default function AddExpenseScreen() {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [isIncome, setIsIncome] = useState(false); // true = ganho, false = gasto
   const [isCredit, setIsCredit] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [dueDay, setDueDay] = useState('');
   const [recurringMonths, setRecurringMonths] = useState('');
   const colorScheme = useColorScheme();
 
-  const { addExpense } = useFinance();
+  const { addTransaction } = useFinance();
 
-  const handleSaveExpense = async () => {
+  const handleSaveTransaction = async () => {
     // Validar campos
     if (!description.trim()) {
-      Alert.alert('Erro', 'Por favor, informe uma descrição para o gasto.');
+      Alert.alert('Erro', `Por favor, informe uma descrição para ${isIncome ? 'o ganho' : 'o gasto'}.`);
       return;
     }
 
     // Normalizar o valor: substituir vírgula por ponto
     const normalizedAmount = amount.trim().replace(',', '.');
     if (!normalizedAmount || isNaN(Number(normalizedAmount)) || Number(normalizedAmount) <= 0) {
-      Alert.alert('Erro', 'Por favor, informe um valor válido para o gasto.');
+      Alert.alert('Erro', `Por favor, informe um valor válido para ${isIncome ? 'o ganho' : 'o gasto'}.`);
       return;
     }
 
-    if (isCredit && isRecurring && (!dueDay.trim() || isNaN(Number(dueDay)) || Number(dueDay) < 1 || Number(dueDay) > 31)) {
+    // Validações específicas para gastos
+    if (!isIncome && isCredit && isRecurring && (!dueDay.trim() || isNaN(Number(dueDay)) || Number(dueDay) < 1 || Number(dueDay) > 31)) {
       Alert.alert('Erro', 'Por favor, informe um dia de vencimento válido (1-31).');
       return;
     }
 
-    if (isCredit && isRecurring && (!recurringMonths.trim() || isNaN(Number(recurringMonths)) || Number(recurringMonths) < 1)) {
+    if (!isIncome && isCredit && isRecurring && (!recurringMonths.trim() || isNaN(Number(recurringMonths)) || Number(recurringMonths) < 1)) {
       Alert.alert('Erro', 'Por favor, informe um número válido de meses para recorrência.');
       return;
     }
 
-    // Criar objeto de gasto
-    const newExpense = {
+    // Criar objeto de transação
+    const newTransaction = {
       description: description.trim(),
       amount: Number(normalizedAmount),
       date: new Date(),
-      type: isCredit ? 'credit' : 'debit',
+      category: isIncome ? 'income' : 'expense',
+      type: isIncome ? 'income' : (isCredit ? 'credit' : 'debit'),
       isRecurring: isCredit ? isRecurring : false,
       dueDay: isCredit && isRecurring ? Number(dueDay) : undefined,
       recurringMonths: isCredit && isRecurring ? Number(recurringMonths) : undefined,
@@ -55,12 +58,13 @@ export default function AddExpenseScreen() {
       startYear: new Date().getFullYear(),
     };
 
-    // Salvar o gasto usando o contexto
-    await addExpense(newExpense);
+    // Salvar a transação usando o contexto
+    await addTransaction(newTransaction);
     
     // Limpar os campos imediatamente após adicionar
     setDescription('');
     setAmount('');
+    setIsIncome(false);
     setIsCredit(false);
     setIsRecurring(false);
     setDueDay('');
@@ -68,7 +72,7 @@ export default function AddExpenseScreen() {
     
     Alert.alert(
       'Sucesso',
-      'Gasto adicionado com sucesso!',
+      `${isIncome ? 'Ganho' : 'Gasto'} adicionado com sucesso!`,
       [
         { 
           text: 'OK', 
@@ -84,13 +88,33 @@ export default function AddExpenseScreen() {
   return (
     <ScrollView style={styles.scrollView}>
       <ThemedView style={styles.container}>
-        <ThemedText type="title" style={styles.title}>Adicionar Gasto</ThemedText>
+        <ThemedText type="title" style={styles.title}>
+          {isIncome ? 'Adicionar Ganho' : 'Adicionar Gasto'}
+        </ThemedText>
+        
+        <ThemedView style={styles.switchContainer}>
+          <ThemedText>Tipo de Transação</ThemedText>
+          <ThemedView style={styles.typeSelector}>
+            <TouchableOpacity 
+              style={[styles.typeButton, !isIncome && styles.typeButtonActive]}
+              onPress={() => setIsIncome(false)}
+            >
+              <ThemedText style={[styles.typeButtonText, !isIncome && styles.typeButtonTextActive]}>Gasto</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.typeButton, isIncome && styles.typeButtonActive]}
+              onPress={() => setIsIncome(true)}
+            >
+              <ThemedText style={[styles.typeButtonText, isIncome && styles.typeButtonTextActive]}>Ganho</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </ThemedView>
         
         <ThemedView style={styles.formGroup}>
           <ThemedText>Descrição</ThemedText>
           <TextInput
             style={[styles.input, { color: Colors[colorScheme ?? 'light'].text }]}
-            placeholder="Ex: Supermercado, Aluguel, etc"
+            placeholder={isIncome ? "Ex: Freelance, Venda, etc" : "Ex: Supermercado, Aluguel, etc"}
             placeholderTextColor={Colors[colorScheme ?? 'light'].icon}
             value={description}
             onChangeText={setDescription}
@@ -109,16 +133,18 @@ export default function AddExpenseScreen() {
           />
         </ThemedView>
         
-        <ThemedView style={styles.switchContainer}>
-          <ThemedText>Crédito</ThemedText>
-          <Switch
-            value={isCredit}
-            onValueChange={setIsCredit}
-            trackColor={{ false: '#767577', true: Colors[colorScheme ?? 'light'].tint }}
-          />
-        </ThemedView>
+        {!isIncome && (
+          <ThemedView style={styles.switchContainer}>
+            <ThemedText>Crédito</ThemedText>
+            <Switch
+              value={isCredit}
+              onValueChange={setIsCredit}
+              trackColor={{ false: '#767577', true: Colors[colorScheme ?? 'light'].tint }}
+            />
+          </ThemedView>
+        )}
         
-        {isCredit && (
+        {!isIncome && isCredit && (
           <ThemedView style={styles.switchContainer}>
             <ThemedText>Gasto Recorrente</ThemedText>
             <Switch
@@ -129,7 +155,7 @@ export default function AddExpenseScreen() {
           </ThemedView>
         )}
         
-        {isCredit && isRecurring && (
+        {!isIncome && isCredit && isRecurring && (
           <>
             <ThemedView style={styles.formGroup}>
               <ThemedText>Dia de Vencimento</ThemedText>
@@ -162,7 +188,7 @@ export default function AddExpenseScreen() {
         <ThemedView style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
-            onPress={handleSaveExpense}
+            onPress={handleSaveTransaction}
           >
             <ThemedText style={styles.buttonText}>Salvar</ThemedText>
           </TouchableOpacity>
@@ -217,5 +243,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  typeButtonActive: {
+    backgroundColor: '#007AFF',
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
   },
 });

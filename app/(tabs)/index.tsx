@@ -7,21 +7,22 @@ import { useFinance } from '@/contexts/FinanceContext';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 
-interface Expense {
+interface Transaction {
   id: string;
   description: string;
   amount: number;
   date: Date;
-  type: 'credit' | 'debit';
+  category: 'expense' | 'income';
+  type: 'credit' | 'debit' | 'income';
   isRecurring?: boolean;
   dueDay?: number;
-  recurringMonths?: number; // Número de meses que o gasto se repete
-  startMonth?: number; // Mês de início do gasto (1-12)
-  startYear?: number; // Ano de início do gasto
+  recurringMonths?: number;
+  startMonth?: number;
+  startYear?: number;
 }
 
 export default function DashboardScreen() {
-  const { salary, expenses, balance, currentMonth, currentYear, setCurrentMonth, setCurrentYear, getExpensesByMonth } = useFinance();
+  const { salary, balance, currentMonth, currentYear, setCurrentMonth, setCurrentYear, getTransactionsByMonth } = useFinance();
   const colorScheme = useColorScheme();
 
   // Função para navegar para o mês anterior
@@ -53,11 +54,18 @@ export default function DashboardScreen() {
     return monthNames[month - 1];
   };
 
-  // Obter os gastos do mês atual
-  const currentMonthExpenses = getExpensesByMonth(currentMonth, currentYear);
+  // Obter as transações do mês atual
+  const currentMonthTransactions = getTransactionsByMonth(currentMonth, currentYear);
   
-  // Calcular o total de gastos do mês atual
+  // Separar gastos e ganhos
+  const currentMonthExpenses = currentMonthTransactions.filter(transaction => transaction.category === 'expense');
+  const currentMonthIncome = currentMonthTransactions.filter(transaction => transaction.category === 'income');
+  
+  // Calcular totais
   const totalExpenses = currentMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const totalIncome = currentMonthIncome.reduce((total, income) => total + income.amount, 0);
+  const debitExpenses = currentMonthExpenses.filter(expense => expense.type === 'debit').reduce((total, expense) => total + expense.amount, 0);
+  const creditExpenses = currentMonthExpenses.filter(expense => expense.type === 'credit').reduce((total, expense) => total + expense.amount, 0);
 
   return (
     <ParallaxScrollView
@@ -96,34 +104,49 @@ export default function DashboardScreen() {
               R$ {totalExpenses.toFixed(2)}
             </ThemedText>
           </ThemedView>
+          
+          <ThemedView style={styles.infoItem}>
+            <ThemedText>Total de Ganhos</ThemedText>
+            <ThemedText type="defaultSemiBold" style={{ color: '#27ae60' }}>
+              R$ {totalIncome.toFixed(2)}
+            </ThemedText>
+          </ThemedView>
         </ThemedView>
 
         <ThemedView style={styles.summaryContainer}>
           <ThemedText type="subtitle">Resumo</ThemedText>
           
-          {currentMonthExpenses.length === 0 ? (
+          {currentMonthTransactions.length === 0 ? (
             <ThemedText style={styles.emptyText}>
-              Nenhum gasto registrado para {getMonthName(currentMonth)} de {currentYear}. Adicione gastos para visualizar seu resumo financeiro.
+              Nenhuma transação registrada para {getMonthName(currentMonth)} de {currentYear}. Adicione gastos ou ganhos para visualizar seu resumo financeiro.
             </ThemedText>
           ) : (
             <ThemedView style={styles.summaryContent}>
               <ThemedView style={styles.summaryItem}>
                 <ThemedText>Gastos no Débito</ThemedText>
-                <ThemedText>
-                  R$ {currentMonthExpenses
-                    .filter(expense => expense.type === 'debit')
-                    .reduce((total, expense) => total + expense.amount, 0)
-                    .toFixed(2)}
+                <ThemedText style={{ color: '#e74c3c' }}>
+                  R$ {debitExpenses.toFixed(2)}
                 </ThemedText>
               </ThemedView>
               
               <ThemedView style={styles.summaryItem}>
                 <ThemedText>Gastos no Crédito</ThemedText>
-                <ThemedText>
-                  R$ {currentMonthExpenses
-                    .filter(expense => expense.type === 'credit')
-                    .reduce((total, expense) => total + expense.amount, 0)
-                    .toFixed(2)}
+                <ThemedText style={{ color: '#e74c3c' }}>
+                  R$ {creditExpenses.toFixed(2)}
+                </ThemedText>
+              </ThemedView>
+              
+              <ThemedView style={styles.summaryItem}>
+                <ThemedText>Total de Ganhos</ThemedText>
+                <ThemedText style={{ color: '#27ae60' }}>
+                  R$ {totalIncome.toFixed(2)}
+                </ThemedText>
+              </ThemedView>
+              
+              <ThemedView style={styles.summaryItem}>
+                <ThemedText>Saldo do Mês</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: (totalIncome - totalExpenses) >= 0 ? '#27ae60' : '#e74c3c' }}>
+                  R$ {(totalIncome - totalExpenses).toFixed(2)}
                 </ThemedText>
               </ThemedView>
             </ThemedView>

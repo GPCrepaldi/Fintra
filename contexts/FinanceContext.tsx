@@ -1,28 +1,37 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface Expense {
+interface Transaction {
   id: string;
   description: string;
   amount: number;
   date: Date;
-  type: 'credit' | 'debit';
+  category: 'expense' | 'income'; // expense = gasto, income = ganho
+  type: 'credit' | 'debit'; // Para gastos: credit/debit, para ganhos sempre será 'income'
   isRecurring?: boolean;
   dueDay?: number;
-  recurringMonths?: number; // Número de meses que o gasto se repete
-  startMonth?: number; // Mês de início do gasto (1-12)
-  startYear?: number; // Ano de início do gasto
+  recurringMonths?: number; // Número de meses que a transação se repete
+  startMonth?: number; // Mês de início da transação (1-12)
+  startYear?: number; // Ano de início da transação
 }
+
+// Manter interface Expense para compatibilidade
+interface Expense extends Transaction {}
 
 interface FinanceContextData {
   salary: number;
   setSalary: (value: number) => Promise<void>;
-  expenses: Expense[];
-  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
-  updateExpense: (expense: Expense) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
+  transactions: Transaction[];
+  expenses: Expense[]; // Manter para compatibilidade
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>; // Manter para compatibilidade
+  updateTransaction: (transaction: Transaction) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>; // Manter para compatibilidade
+  deleteTransaction: (id: string) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>; // Manter para compatibilidade
   balance: number;
-  getExpensesByMonth: (month: number, year: number) => Expense[];
+  getTransactionsByMonth: (month: number, year: number) => Transaction[];
+  getExpensesByMonth: (month: number, year: number) => Expense[]; // Manter para compatibilidade
   currentMonth: number;
   currentYear: number;
   setCurrentMonth: (month: number) => void;
@@ -39,24 +48,37 @@ interface FinanceProviderProps {
 
 export function FinanceProvider({ children }: FinanceProviderProps) {
   const [salary, setSalaryState] = useState(0);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balance, setBalance] = useState(0);
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+
+  // Manter expenses para compatibilidade
+  const expenses = transactions.filter(t => t.category === 'expense');
 
   // Carregar dados do AsyncStorage ao iniciar
   useEffect(() => {
     async function loadStoredData() {
       try {
         const storedSalary = await AsyncStorage.getItem('@Fintra:salary');
-        const storedExpenses = await AsyncStorage.getItem('@Fintra:expenses');
+        const storedTransactions = await AsyncStorage.getItem('@Fintra:transactions');
+        const storedExpenses = await AsyncStorage.getItem('@Fintra:expenses'); // Para migração
 
         if (storedSalary) {
           setSalaryState(Number(storedSalary));
         }
 
-        if (storedExpenses) {
-          setExpenses(JSON.parse(storedExpenses));
+        if (storedTransactions) {
+          setTransactions(JSON.parse(storedTransactions));
+        } else if (storedExpenses) {
+          // Migrar dados antigos de expenses para transactions
+          const oldExpenses = JSON.parse(storedExpenses);
+          const migratedTransactions = oldExpenses.map((expense: any) => ({
+            ...expense,
+            category: 'expense'
+          }));
+          setTransactions(migratedTransactions);
+          await AsyncStorage.setItem('@Fintra:transactions', JSON.stringify(migratedTransactions));
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -66,8 +88,48 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
     loadStoredData();
   }, []);
 
-  // Função para verificar se uma despesa deve aparecer em um determinado mês/ano
+  // Função para verificar se uma transação deve aparecer em um determinado mês/ano
+  const isTransactionVisibleInMonth = (transaction: Transaction, month: number, year: number) => {
+    const transactionDate = new Date(transaction.date);
+    const transactionMonth = transactionDate.getMonth() + 1; // 1-12
+    const transactionYear = transactionDate.getFullYear();
+    
+    // Para ganhos, sempre aparecem no mês em que foram cadastrados
+    if (transaction.category === 'income') {
+      return transactionMonth === month && transactionYear === year;
+    }
+    
+    // Para gastos no débito, só aparecem no mês em que foram cadastrados
+    if (transaction.type === 'debit') {
+      return transactionMonth === month && transactionYear === year;
+    }
+    
+    // Para gastos de crédito não recorrentes, só aparecem no mês em que foram cadastrados
+    if (transaction.type === 'credit' && !transaction.isRecurring) {
+      return transactionMonth === month && transactionYear === year;
+    }
+    
+    // Para gastos de crédito recorrentes
+    if (transaction.type === 'credit' && transaction.isRecurring) {
+      const startMonth = transaction.startMonth || transactionMonth;
+      const startYear = transaction.startYear || transactionYear;
+      const recurringMonths = transaction.recurringMonths || 1;
+      
+      // Calcular o número total de meses desde o início
+      const startTotalMonths = (startYear * 12) + startMonth;
+      const targetTotalMonths = (year * 12) + month;
+      const monthDifference = targetTotalMonths - startTotalMonths;
+      
+      // O gasto deve aparecer se estiver dentro do período de recorrência
+      return monthDifference >= 0 && monthDifference < recurringMonths;
+    }
+    
+    return false;
+  };
+
+  // Função para verificar se uma despesa deve aparecer em um determinado mês/ano (compatibilidade)
   const isExpenseVisibleInMonth = (expense: Expense, month: number, year: number) => {
+    return isTransactionVisibleInMonth(expense, month, year);
     const expenseDate = new Date(expense.date);
     const expenseMonth = expenseDate.getMonth() + 1; // 1-12
     const expenseYear = expenseDate.getFullYear();
@@ -100,21 +162,30 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
     return false;
   };
 
-  // Função para obter gastos de um mês específico
+  // Função para obter transações de um mês específico
+  const getTransactionsByMonth = (month: number, year: number) => {
+    return transactions.filter(transaction => isTransactionVisibleInMonth(transaction, month, year));
+  };
+
+  // Função para obter gastos de um mês específico (compatibilidade)
   const getExpensesByMonth = (month: number, year: number) => {
     return expenses.filter(expense => isExpenseVisibleInMonth(expense, month, year));
   };
 
-  // Calcular saldo disponível (salário - gastos do mês atual)
+  // Calcular saldo disponível (salário + ganhos - gastos do mês atual)
   useEffect(() => {
-    const currentMonthExpenses = getExpensesByMonth(currentMonth, currentYear);
-    const totalExpenses = currentMonthExpenses.reduce((total, expense) => {
-      // Considerar todos os tipos de gastos (débito e crédito)
-      return total + expense.amount;
-    }, 0);
+    const currentMonthTransactions = getTransactionsByMonth(currentMonth, currentYear);
     
-    setBalance(salary - totalExpenses);
-  }, [salary, expenses, currentMonth, currentYear]);
+    const totalExpenses = currentMonthTransactions
+      .filter(t => t.category === 'expense')
+      .reduce((total, expense) => total + expense.amount, 0);
+    
+    const totalIncome = currentMonthTransactions
+      .filter(t => t.category === 'income')
+      .reduce((total, income) => total + income.amount, 0);
+    
+    setBalance(salary + totalIncome - totalExpenses);
+  }, [salary, transactions, currentMonth, currentYear]);
 
   // Função para definir o salário
   const setSalary = async (value: number) => {
@@ -126,70 +197,85 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
     }
   };
 
-  // Função para adicionar um novo gasto
-  const addExpense = async (expense: Omit<Expense, 'id'>) => {
+  // Função para adicionar uma nova transação
+  const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
     try {
       const now = new Date();
-      const newExpense = {
-        ...expense,
+      const newTransaction = {
+        ...transaction,
         id: Date.now().toString(),
-        startMonth: expense.isRecurring ? (expense.startMonth || now.getMonth() + 1) : undefined,
-        startYear: expense.isRecurring ? (expense.startYear || now.getFullYear()) : undefined,
+        startMonth: transaction.isRecurring ? (transaction.startMonth || now.getMonth() + 1) : undefined,
+        startYear: transaction.isRecurring ? (transaction.startYear || now.getFullYear()) : undefined,
       };
 
-      const updatedExpenses = [...expenses, newExpense];
-      await AsyncStorage.setItem('@Fintra:expenses', JSON.stringify(updatedExpenses));
-      setExpenses(updatedExpenses);
+      const updatedTransactions = [...transactions, newTransaction];
+      await AsyncStorage.setItem('@Fintra:transactions', JSON.stringify(updatedTransactions));
+      setTransactions(updatedTransactions);
     } catch (error) {
-      console.error('Erro ao adicionar gasto:', error);
+      console.error('Erro ao adicionar transação:', error);
     }
   };
 
-  // Função para atualizar um gasto existente
-  const updateExpense = async (expense: Expense) => {
+  // Função para adicionar um novo gasto (compatibilidade)
+  const addExpense = async (expense: Omit<Expense, 'id'>) => {
+    await addTransaction({ ...expense, category: 'expense' });
+  };
+
+  // Função para atualizar uma transação existente
+  const updateTransaction = async (transaction: Transaction) => {
     try {
-      const updatedExpenses = expenses.map(item => 
-        item.id === expense.id ? expense : item
+      const updatedTransactions = transactions.map(item => 
+        item.id === transaction.id ? transaction : item
       );
 
-      await AsyncStorage.setItem('@Fintra:expenses', JSON.stringify(updatedExpenses));
-      setExpenses(updatedExpenses);
+      await AsyncStorage.setItem('@Fintra:transactions', JSON.stringify(updatedTransactions));
+      setTransactions(updatedTransactions);
     } catch (error) {
-      console.error('Erro ao atualizar gasto:', error);
+      console.error('Erro ao atualizar transação:', error);
     }
   };
 
-  // Função para excluir um gasto
-  const deleteExpense = async (id: string) => {
+  // Função para atualizar um gasto existente (compatibilidade)
+  const updateExpense = async (expense: Expense) => {
+    await updateTransaction(expense);
+  };
+
+  // Função para excluir uma transação
+  const deleteTransaction = async (id: string) => {
     try {
-      console.log('FinanceContext - Excluindo gasto com ID:', id);
-      console.log('FinanceContext - Expenses antes:', expenses.length);
+      console.log('FinanceContext - Excluindo transação com ID:', id);
+      console.log('FinanceContext - Transactions antes:', transactions.length);
       
       // Converter o ID para string para garantir a comparação correta
       const stringId = String(id);
-      const updatedExpenses = expenses.filter(expense => String(expense.id) !== stringId);
+      const updatedTransactions = transactions.filter(transaction => String(transaction.id) !== stringId);
       
-      console.log('FinanceContext - Expenses depois:', updatedExpenses.length);
+      console.log('FinanceContext - Transactions depois:', updatedTransactions.length);
       
-      if (expenses.length === updatedExpenses.length) {
-        console.error('Nenhuma despesa foi removida. IDs não correspondem.');
+      if (transactions.length === updatedTransactions.length) {
+        console.error('Nenhuma transação foi removida. IDs não correspondem.');
         // Imprimir todos os IDs para debug
-        expenses.forEach(expense => console.log('ID disponível:', expense.id, typeof expense.id));
+        transactions.forEach(transaction => console.log('ID disponível:', transaction.id, typeof transaction.id));
         console.log('ID a ser excluído:', id, typeof id);
         throw new Error('ID não encontrado');
       }
       
       // Garantir que o AsyncStorage seja atualizado antes de atualizar o estado
-      await AsyncStorage.setItem('@Fintra:expenses', JSON.stringify(updatedExpenses));
+      await AsyncStorage.setItem('@Fintra:transactions', JSON.stringify(updatedTransactions));
       
       // Atualizar o estado com os novos dados
-      setExpenses(updatedExpenses);
+      setTransactions(updatedTransactions);
       
       return true; // Retornar true para indicar sucesso
     } catch (error) {
-      console.error('Erro ao excluir gasto:', error);
+      console.error('Erro ao excluir transação:', error);
       throw error; // Propagar o erro para ser tratado no componente
     }
+  };
+
+  // Função para excluir um gasto (compatibilidade)
+  const deleteExpense = async (id: string) => {
+    await deleteTransaction(id);
   };
 
   return (
@@ -197,11 +283,16 @@ export function FinanceProvider({ children }: FinanceProviderProps) {
       value={{
         salary,
         setSalary,
+        transactions,
         expenses,
+        addTransaction,
         addExpense,
+        updateTransaction,
         updateExpense,
+        deleteTransaction,
         deleteExpense,
         balance,
+        getTransactionsByMonth,
         getExpensesByMonth,
         currentMonth,
         currentYear,
