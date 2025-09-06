@@ -16,6 +16,7 @@ import { useFinance } from '@/contexts/FinanceContext';
 interface Goal {
   id: string;
   name: string;
+  totalTarget: number;
   monthlyTarget: number;
   currentAmount: number;
   createdAt: Date;
@@ -48,6 +49,7 @@ export default function Goals() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [goalName, setGoalName] = useState('');
+  const [totalTarget, setTotalTarget] = useState('');
   const [monthlyTarget, setMonthlyTarget] = useState('');
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
@@ -55,14 +57,21 @@ export default function Goals() {
   const monthlyContributions = getGoalContributionsByMonth(currentMonth, currentYear);
 
   const handleAddGoal = async () => {
-    if (!goalName.trim() || !monthlyTarget.trim()) {
+    if (!goalName.trim() || !totalTarget.trim() || !monthlyTarget.trim()) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
-    const target = parseFloat(monthlyTarget.replace(',', '.'));
-    if (isNaN(target) || target <= 0) {
-      Alert.alert('Erro', 'Por favor, insira um valor válido.');
+    const total = parseFloat(totalTarget.replace(',', '.'));
+    const monthly = parseFloat(monthlyTarget.replace(',', '.'));
+    
+    if (isNaN(total) || total <= 0 || isNaN(monthly) || monthly <= 0) {
+      Alert.alert('Erro', 'Por favor, insira valores válidos.');
+      return;
+    }
+
+    if (monthly > total) {
+      Alert.alert('Erro', 'O valor mensal não pode ser maior que o valor total da meta.');
       return;
     }
 
@@ -71,18 +80,21 @@ export default function Goals() {
         await updateGoal({
           ...editingGoal,
           name: goalName,
-          monthlyTarget: target,
+          totalTarget: total,
+          monthlyTarget: monthly,
         });
       } else {
         await addGoal({
           name: goalName,
-          monthlyTarget: target,
+          totalTarget: total,
+          monthlyTarget: monthly,
           isActive: true,
         });
       }
 
       setModalVisible(false);
       setGoalName('');
+      setTotalTarget('');
       setMonthlyTarget('');
       setEditingGoal(null);
     } catch (error) {
@@ -93,6 +105,7 @@ export default function Goals() {
   const handleEditGoal = (goal: Goal) => {
     setEditingGoal(goal);
     setGoalName(goal.name);
+    setTotalTarget(goal.totalTarget?.toString() || '');
     setMonthlyTarget(goal.monthlyTarget.toString());
     setModalVisible(true);
   };
@@ -132,8 +145,8 @@ export default function Goals() {
   };
 
   const getGoalProgress = (goal: Goal) => {
-    if (goal.monthlyTarget === 0) return 0;
-    return Math.min((goal.currentAmount / (goal.monthlyTarget * 12)) * 100, 100);
+    if (goal.totalTarget === 0) return 0;
+    return Math.min((goal.currentAmount / goal.totalTarget) * 100, 100);
   };
 
   const renderGoalItem = ({ item: goal }: { item: Goal }) => {
@@ -145,6 +158,9 @@ export default function Goals() {
         <View style={styles.goalHeader}>
           <View style={styles.goalInfo}>
             <Text style={styles.goalName}>{goal.name}</Text>
+            <Text style={styles.goalTarget}>
+              Meta total: {formatCurrency(goal.totalTarget)}
+            </Text>
             <Text style={styles.goalTarget}>
               Meta mensal: {formatCurrency(goal.monthlyTarget)}
             </Text>
@@ -252,6 +268,7 @@ export default function Goals() {
           setModalVisible(false);
           setEditingGoal(null);
           setGoalName('');
+          setTotalTarget('');
           setMonthlyTarget('');
         }}
       >
@@ -266,6 +283,7 @@ export default function Goals() {
                   setModalVisible(false);
                   setEditingGoal(null);
                   setGoalName('');
+                  setTotalTarget('');
                   setMonthlyTarget('');
                 }}
               >
@@ -281,6 +299,18 @@ export default function Goals() {
                 onChangeText={setGoalName}
                 placeholder="Ex: Viagem de férias"
                 placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Valor Total da Meta (R$)</Text>
+              <TextInput
+                style={styles.input}
+                value={totalTarget}
+                onChangeText={setTotalTarget}
+                placeholder="Ex: 5000,00"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
               />
             </View>
 

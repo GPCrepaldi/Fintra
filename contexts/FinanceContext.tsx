@@ -18,6 +18,7 @@ interface Transaction {
 interface Goal {
   id: string;
   name: string;
+  totalTarget: number; // Valor total da meta
   monthlyTarget: number; // Valor máximo a ser adicionado por mês
   currentAmount: number; // Valor atual acumulado na meta
   createdAt: Date;
