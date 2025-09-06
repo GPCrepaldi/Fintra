@@ -56,6 +56,14 @@ export default function AddExpenseScreen() {
     // Salvar o gasto usando o contexto
     await addExpense(newExpense);
     
+    // Limpar os campos imediatamente após adicionar
+    setDescription('');
+    setAmount('');
+    setIsCredit(false);
+    setIsRecurring(false);
+    setDueDay('');
+    setRecurringMonths('');
+    
     Alert.alert(
       'Sucesso',
       'Gasto adicionado com sucesso!',
@@ -63,14 +71,6 @@ export default function AddExpenseScreen() {
         { 
           text: 'OK', 
           onPress: () => {
-            // Limpar os campos
-            setDescription('');
-            setAmount('');
-            setIsCredit(false);
-            setIsRecurring(false);
-            setDueDay('');
-            setRecurringMonths('');
-            
             // Voltar para a tela anterior
             router.back();
           } 
