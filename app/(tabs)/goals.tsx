@@ -252,7 +252,7 @@ export default function Goals() {
             style={styles.addButton}
             onPress={() => setModalVisible(true)}
           >
-            <Ionicons name="add" size={24} color="white" />
+            <Ionicons name="add" size={24} color="black" />
           </TouchableOpacity>
         </View>
       </ThemedView>
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.light.secondary,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -514,14 +514,14 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   processButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: Colors.light.secondary,
     padding: 12,
     borderRadius: 8,
     marginTop: 10,
     alignItems: 'center',
   },
   processButtonText: {
-    color: 'white',
+    color: 'black',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -678,13 +678,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.light.secondary,
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
   saveButtonText: {
-    color: 'white',
+    color: 'black',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activeTypeButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.light.secondary,
   },
   typeButtonText: {
     fontSize: 16,
@@ -718,6 +718,6 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   activeTypeButtonText: {
-    color: 'white',
+    color: 'black',
   },
 });

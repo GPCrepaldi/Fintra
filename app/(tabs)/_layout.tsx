@@ -44,7 +44,10 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '',
-          tabBarIcon: ({ color }) => <IconSymbol size={32} name="house.fill" color="#00ff41" />,
+          tabBarIcon: ({ color }) => {
+            const colorScheme = useColorScheme();
+            return <IconSymbol size={32} name="house.fill" color={Colors[colorScheme ?? 'light'].secondary} />;
+          },
         }}
       />
       <Tabs.Screen

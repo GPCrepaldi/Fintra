@@ -52,7 +52,7 @@ export default function SettingsScreen() {
         </ThemedView>
         
         <TouchableOpacity 
-          style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+          style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].secondary }]}
           onPress={handleSaveSalary}
         >
           <ThemedText style={styles.buttonText}>Salvar</ThemedText>
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
+    color: 'black',
     fontSize: 16,
     fontWeight: 'bold',
   },

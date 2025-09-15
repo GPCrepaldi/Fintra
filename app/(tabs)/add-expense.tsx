@@ -187,7 +187,7 @@ export default function AddExpenseScreen() {
         
         <ThemedView style={styles.buttonContainer}>
           <TouchableOpacity 
-            style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+            style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].secondary }]}
             onPress={handleSaveTransaction}
           >
             <ThemedText style={styles.buttonText}>Salvar</ThemedText>
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
+    color: 'black',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -259,13 +259,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   typeButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.light.secondary,
   },
   typeButtonText: {
     fontSize: 14,
     fontWeight: '500',
   },
   typeButtonTextActive: {
-    color: '#fff',
+    color: 'black',
   },
 });
