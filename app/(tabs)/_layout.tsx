@@ -30,7 +30,7 @@ export default function TabLayout() {
         name="goals"
         options={{
           title: 'Metas',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="target" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="trending.up" color={color} />,
         }}
       />
       <Tabs.Screen
