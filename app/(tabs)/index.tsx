@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
@@ -69,8 +69,14 @@ export default function DashboardScreen() {
 
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={null}>
+      headerBackgroundColor={{ light: '#A1CEDC', dark: '#90EE90' }}
+      headerImage={
+        <Image 
+          source={require('@/assets/images/logo.png')} 
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+      }>
       <ThemedView style={styles.container}>
         {/* Navegação entre meses */}
         <ThemedView style={styles.monthNavigation}>
@@ -219,5 +225,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  headerLogo: {
+    width: 600,
+    height: 300,
+    alignSelf: 'center',
+    marginTop: -60,
   },
 });
